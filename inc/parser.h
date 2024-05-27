@@ -29,12 +29,12 @@ bool lclex_expect_token(lclex_token_t *token, lclex_tokentype_t expected);
 lclex_node_t *lclex_parse_expression(char **text);
 
 lclex_node_t *lclex_parse_application(char **text, lclex_token_t *token, 
-                                      lclex_string_stack_t *stack);
+                                      lclex_stack_t *stack);
 
 lclex_node_t *lclex_parse_abstraction(char **text, lclex_token_t *token, 
-                                      lclex_string_stack_t *stack);
+                                      lclex_stack_t *stack);
 
 lclex_node_t *lclex_parse_value(char **text, lclex_token_t *token, 
-                                lclex_string_stack_t *stack);
+                                lclex_stack_t *stack);
 
 #endif

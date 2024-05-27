@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "utils.h"
 #include <ctype.h>
+#include <string.h>
 
 char *lclex_next_token(char **text, lclex_token_t *token) {
     static char replaced = '\0';
@@ -96,12 +97,12 @@ lclex_node_t *lclex_parse_expression(char **text) {
         fprintf(stderr, "Error: empty input string\n");
     }
 
-    lclex_string_stack_t stack;
-    lclex_init_string_stack(&stack);
+    lclex_stack_t stack;
+    lclex_init_stack(&stack);
 
     lclex_node_t *node = lclex_parse_application(text, &token, &stack);
 
-    lclex_destruct_string_stack(&stack);
+    lclex_destruct_stack(&stack);
 
     if (node == NULL || !lclex_expect_token(&token, LCLEX_TOKEN_EOF)) {
         if (node != NULL) {
@@ -114,7 +115,7 @@ lclex_node_t *lclex_parse_expression(char **text) {
 }
 
 lclex_node_t *lclex_parse_application(char **text, lclex_token_t *token, 
-                                      lclex_string_stack_t *stack) {
+                                      lclex_stack_t *stack) {
     lclex_node_t *node = NULL; 
     
     while (token->type != LCLEX_TOKEN_EOF 
@@ -132,8 +133,7 @@ lclex_node_t *lclex_parse_application(char **text, lclex_token_t *token,
         if (node == NULL) {
             node = sub;
         } else {
-            node = lclex_new_node(LCLEX_APPLICATION, lclex_empty_string, 
-                                  node, sub);
+            node = lclex_new_node(LCLEX_APPLICATION, NULL, node, sub);
         }
     }
 
@@ -141,7 +141,7 @@ lclex_node_t *lclex_parse_application(char **text, lclex_token_t *token,
 }
 
 lclex_node_t *lclex_parse_abstraction(char **text, lclex_token_t *token, 
-                                      lclex_string_stack_t *stack) {    
+                                      lclex_stack_t *stack) {    
     if (token->type != LCLEX_TOKEN_LAMBDA) {
         return lclex_parse_value(text, token, stack);
     }
@@ -152,29 +152,31 @@ lclex_node_t *lclex_parse_abstraction(char **text, lclex_token_t *token,
         return NULL;
     }
 
-    lclex_string_t string = lclex_make_string(token->data);
+    char *str = lclex_strdup(token->data);
 
     lclex_node_t *body;
 
     lclex_next_token(text, token);
-    lclex_push_string(stack, string);
+    lclex_push_string(stack, str);
+
     if (token->type == LCLEX_TOKEN_DOT) {
         lclex_next_token(text, token);
         body = lclex_parse_application(text, token, stack);
     } else {
         body = lclex_parse_abstraction(text, token, stack);
     }
+
     lclex_pop_string(stack);
 
     if (body == NULL) {
         return NULL;
     }
     
-    return lclex_new_node(LCLEX_ABSTRACTION, string, body, NULL);
+    return lclex_new_node(LCLEX_ABSTRACTION, str, body, NULL);
 }
 
 lclex_node_t *lclex_parse_value(char **text, lclex_token_t *token, 
-                                lclex_string_stack_t *stack) {
+                                lclex_stack_t *stack) {
     if (token->type == LCLEX_TOKEN_BROPEN) {
         lclex_next_token(text, token);
 
@@ -198,22 +200,26 @@ lclex_node_t *lclex_parse_value(char **text, lclex_token_t *token,
     }
 
     lclex_type_t type;
-    lclex_string_t string;
+    uintptr_t str;
     size_t i;
+
     for (i = 0; i < stack->size; i++) {
-        lclex_string_t bound_string = stack->data[stack->size - i - 1];
-        if (lclex_equals_raw_string(bound_string, token->data)) {
-            string.index = i;
+        char *bound_str = stack->data[stack->size - i - 1];
+
+        if (strcmp(token->data, bound_str) == 0) {
+            str = i;
             type = LCLEX_BOUND_VARIABLE;
+
             break;
         }
     }
+
     if (i == stack->size) {
         type = LCLEX_FREE_VARIABLE;
-        string = lclex_make_string(token->data);
+        str = (uintptr_t)lclex_strdup(token->data);
     }
 
     lclex_next_token(text, token);
 
-    return lclex_new_node(type, string, NULL, NULL);
+    return lclex_new_node(type, (char *)str, NULL, NULL);
 }
