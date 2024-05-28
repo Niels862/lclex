@@ -31,7 +31,17 @@ extern lclex_node_t *NULL_NODE;
 lclex_node_t *lclex_new_node(lclex_type_t type, char *data,
                              lclex_node_t *left, lclex_node_t *right);
 
+lclex_node_t *lclex_new_application(lclex_node_t *left, lclex_node_t *right);
+
+lclex_node_t *lclex_new_abstraction(char *data, lclex_node_t *left);
+
+lclex_node_t *lclex_new_free_variable(char *data);
+
+lclex_node_t *lclex_new_bound_variable(lclex_bruijn_index_t index);
+
 lclex_node_t *lclex_copy_node(lclex_node_t *node);
+
+lclex_node_t *lclex_church_encode(uint64_t n);
 
 void lclex_free_node(lclex_node_t *node);
 

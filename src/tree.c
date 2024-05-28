@@ -19,6 +19,22 @@ lclex_node_t *lclex_new_node(lclex_type_t type, char *data,
     return node;
 }
 
+lclex_node_t *lclex_new_application(lclex_node_t *left, lclex_node_t *right) {
+    return lclex_new_node(LCLEX_APPLICATION, NULL, left, right);
+}
+
+lclex_node_t *lclex_new_abstraction(char *data, lclex_node_t *left) {
+    return lclex_new_node(LCLEX_ABSTRACTION, data, left, NULL);
+}
+
+lclex_node_t *lclex_new_free_variable(char *data) {
+    return lclex_new_node(LCLEX_FREE_VARIABLE, data, NULL, NULL);
+}
+
+lclex_node_t *lclex_new_bound_variable(lclex_bruijn_index_t index) {
+    return lclex_new_node(LCLEX_BOUND_VARIABLE, (char *)index, NULL, NULL);
+}
+
 lclex_node_t *lclex_copy_node(lclex_node_t *node) {
     lclex_node_t *left = NULL, *right = NULL;
     char *str = NULL;
@@ -44,6 +60,20 @@ lclex_node_t *lclex_copy_node(lclex_node_t *node) {
     }
 
     return lclex_new_node(node->type, str, left, right);
+}
+
+lclex_node_t *lclex_church_encode(uint64_t n) {
+    lclex_node_t *node = lclex_new_bound_variable(0);
+
+    for (uint64_t i = n; i > 0; i--) {
+        lclex_node_t *f = lclex_new_bound_variable(1);
+        node = lclex_new_application(f, node);
+    }
+
+    lclex_node_t *abstr_x = lclex_new_abstraction(lclex_strdup("x"), node);
+    lclex_node_t *abstr_f = lclex_new_abstraction(lclex_strdup("f"), abstr_x);
+    
+    return abstr_f;
 }
 
 void lclex_free_node(lclex_node_t *node) {
