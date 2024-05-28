@@ -34,8 +34,10 @@ void lclex_init_stack(lclex_stack_t *stack);
 
 void lclex_destruct_stack(lclex_stack_t *stack);
 
-void lclex_push_string(lclex_stack_t *stack, void *data);
+void lclex_clear_stack(lclex_stack_t *stack);
 
-void *lclex_pop_string(lclex_stack_t *stack);
+void lclex_push_stack(lclex_stack_t *stack, void *data);
+
+void *lclex_pop_stack(lclex_stack_t *stack);
 
 #endif

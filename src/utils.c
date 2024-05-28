@@ -54,7 +54,11 @@ void lclex_destruct_stack(lclex_stack_t *stack) {
     free(stack->data);
 }
 
-void lclex_push_string(lclex_stack_t *stack, void *data) {
+void lclex_clear_stack(lclex_stack_t *stack) {
+    stack->size = 0;
+}
+
+void lclex_push_stack(lclex_stack_t *stack, void *data) {
     stack->data[stack->size] = data;
     stack->size++;
     if (stack->size >= stack->cap) {
@@ -63,7 +67,7 @@ void lclex_push_string(lclex_stack_t *stack, void *data) {
     }
 }
 
-void *lclex_pop_string(lclex_stack_t *stack) {
+void *lclex_pop_stack(lclex_stack_t *stack) {
     if (stack->size == 0) {
         return NULL;
     }

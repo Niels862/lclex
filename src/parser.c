@@ -157,7 +157,7 @@ lclex_node_t *lclex_parse_abstraction(char **text, lclex_token_t *token,
     lclex_node_t *body;
 
     lclex_next_token(text, token);
-    lclex_push_string(stack, str);
+    lclex_push_stack(stack, str);
 
     if (token->type == LCLEX_TOKEN_DOT) {
         lclex_next_token(text, token);
@@ -166,7 +166,7 @@ lclex_node_t *lclex_parse_abstraction(char **text, lclex_token_t *token,
         body = lclex_parse_abstraction(text, token, stack);
     }
 
-    lclex_pop_string(stack);
+    lclex_pop_stack(stack);
 
     if (body == NULL) {
         return NULL;
