@@ -282,21 +282,25 @@ void lclex_find_bound_and_shift(lclex_node_t **pnode, lclex_node_t *new,
     }
 }
 
-void lclex_shift(lclex_node_t *node, uint64_t shift) {
+void lclex_shift(lclex_node_t *node, uint64_t shift, 
+                 lclex_bruijn_index_t index) {
     switch (node->type) {
         case LCLEX_APPLICATION:
-            lclex_shift(node->right, shift);
-        
-            __attribute__((fallthrough));
+            lclex_shift(node->left, shift, index);
+            lclex_shift(node->right, shift, index);
+            break;        
+
         case LCLEX_ABSTRACTION:
-            lclex_shift(node->left, shift);
+            lclex_shift(node->left, shift, index + 1);
             break;
 
         case LCLEX_FREE_VARIABLE:
             break;
 
         case LCLEX_BOUND_VARIABLE:
-            node->data.index += shift;
+            if (node->data.index >= index) {
+                node->data.index += shift;
+            }
             break;
     }
 }
@@ -313,14 +317,16 @@ void lclex_reduce_redex(lclex_node_t **redex, lclex_stack_t *stack) {
         lclex_bruijn_index_t index = (lclex_bruijn_index_t)(stack->data[i + 1]);
         lclex_free_node(*ptarget);
 
-        if (i == stack->size) {
+        if (i == stack->size - 2) {
             *ptarget = node->right;
             node->right = NULL;
         } else {
             *ptarget = lclex_copy_node(node->right);
         }
 
-        lclex_shift(*ptarget, index);
+        if (index != 0) {
+            lclex_shift(*ptarget, index, 0);
+        }
     }
     *redex = abstr->left;
 
@@ -338,9 +344,6 @@ void lclex_reduce_expression(lclex_node_t **pexpr, uint64_t max) {
     while (count < max && *(redex = lclex_find_redex(pexpr)) != NULL_NODE) {
         lclex_reduce_redex(redex, &stack);
         count++;
-
-        printf("%ld: ", count);
-        lclex_write_node(*pexpr, stdout);
     }
 
     lclex_destruct_stack(&stack);

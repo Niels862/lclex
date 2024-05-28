@@ -24,20 +24,16 @@ int main() {
             continue;
         }
 
-        printf(">>> ");
-        lclex_write_node(expr, stdout);
+        lclex_reduce_expression(&expr, UINT64_MAX);
 
-        lclex_reduce_expression(&expr, 1000);
-
-        {
+        if (1) {
             uint64_t n = lclex_church_decode(expr);
             if (n == UINT64_MAX) {
                 printf("nan\n");
             } else {
                 printf("%ld\n", n);
             }
-        } 
-        {
+        } else {
             lclex_write_node(expr, stdout);
         }
         

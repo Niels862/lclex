@@ -62,7 +62,8 @@ void lclex_find_bound_and_shift(lclex_node_t **pnode, lclex_node_t *new,
                                 lclex_bruijn_index_t index, 
                                 lclex_stack_t *stack);
 
-void lclex_shift(lclex_node_t *node, uint64_t shift);
+void lclex_shift(lclex_node_t *node, uint64_t shift, 
+                 lclex_bruijn_index_t index);
 
 void lclex_reduce_redex(lclex_node_t **redex, lclex_stack_t *stack);
 
