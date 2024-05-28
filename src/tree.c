@@ -76,6 +76,36 @@ lclex_node_t *lclex_church_encode(uint64_t n) {
     return abstr_f;
 }
 
+uint64_t lclex_church_decode(lclex_node_t *node) {
+    lclex_node_t *temp = node;
+    if (temp->type != LCLEX_ABSTRACTION) {
+        return UINT64_MAX;
+    }
+
+    temp = temp->left;
+    if (temp->type != LCLEX_ABSTRACTION) {
+        return UINT64_MAX;
+    }
+
+    uint64_t n = 0;
+    temp = temp->left;
+    while (temp->type != LCLEX_BOUND_VARIABLE) {
+        if (temp->type != LCLEX_APPLICATION 
+            || temp->left->type != LCLEX_BOUND_VARIABLE
+            || temp->left->data.index != 1) {
+            return UINT64_MAX;
+        }
+
+        temp = temp->right;
+        n++;
+    }
+
+    if (temp->data.index != 0) {
+        return UINT64_MAX;
+    }
+    return n;
+}
+
 void lclex_free_node(void *data) {
     lclex_node_t *node = data;
     
@@ -224,7 +254,8 @@ lclex_node_t **lclex_find_redex(lclex_node_t **pnode) {
 }
 
 void lclex_find_bound_and_shift(lclex_node_t **pnode, lclex_node_t *new, 
-                      lclex_bruijn_index_t index, lclex_stack_t *stack) {
+                                lclex_bruijn_index_t index, 
+                                lclex_stack_t *stack) {
     lclex_node_t *node = *pnode;
 
     switch (node->type) {
@@ -243,9 +274,29 @@ void lclex_find_bound_and_shift(lclex_node_t **pnode, lclex_node_t *new,
         case LCLEX_BOUND_VARIABLE:
             if (node->data.index == index) {
                 lclex_push_stack(stack, pnode);
+                lclex_push_stack(stack, (void *)(index));
             } else if (node->data.index > index) {
                 node->data.index--;
             }
+            break;
+    }
+}
+
+void lclex_shift(lclex_node_t *node, uint64_t shift) {
+    switch (node->type) {
+        case LCLEX_APPLICATION:
+            lclex_shift(node->right, shift);
+        
+            __attribute__((fallthrough));
+        case LCLEX_ABSTRACTION:
+            lclex_shift(node->left, shift);
+            break;
+
+        case LCLEX_FREE_VARIABLE:
+            break;
+
+        case LCLEX_BOUND_VARIABLE:
+            node->data.index += shift;
             break;
     }
 }
@@ -257,8 +308,9 @@ void lclex_reduce_redex(lclex_node_t **redex, lclex_stack_t *stack) {
     lclex_clear_stack(stack);
     lclex_find_bound_and_shift(&abstr->left, node->right, 0, stack);
 
-    for (size_t i = 0; i < stack->size; i++) {
+    for (size_t i = 0; i < stack->size; i += 2) {
         lclex_node_t **ptarget = stack->data[i];
+        lclex_bruijn_index_t index = (lclex_bruijn_index_t)(stack->data[i + 1]);
         lclex_free_node(*ptarget);
 
         if (i == stack->size) {
@@ -267,6 +319,8 @@ void lclex_reduce_redex(lclex_node_t **redex, lclex_stack_t *stack) {
         } else {
             *ptarget = lclex_copy_node(node->right);
         }
+
+        lclex_shift(*ptarget, index);
     }
     *redex = abstr->left;
 
@@ -284,6 +338,9 @@ void lclex_reduce_expression(lclex_node_t **pexpr, uint64_t max) {
     while (count < max && *(redex = lclex_find_redex(pexpr)) != NULL_NODE) {
         lclex_reduce_redex(redex, &stack);
         count++;
+
+        printf("%ld: ", count);
+        lclex_write_node(*pexpr, stdout);
     }
 
     lclex_destruct_stack(&stack);

@@ -43,6 +43,8 @@ lclex_node_t *lclex_copy_node(lclex_node_t *node);
 
 lclex_node_t *lclex_church_encode(uint64_t n);
 
+uint64_t lclex_church_decode(lclex_node_t *node);
+
 void lclex_free_node(void *data);
 
 void lclex_free_partial_node(void *data);
@@ -59,6 +61,8 @@ lclex_node_t **lclex_find_redex(lclex_node_t **pnode);
 void lclex_find_bound_and_shift(lclex_node_t **pnode, lclex_node_t *new, 
                                 lclex_bruijn_index_t index, 
                                 lclex_stack_t *stack);
+
+void lclex_shift(lclex_node_t *node, uint64_t shift);
 
 void lclex_reduce_redex(lclex_node_t **redex, lclex_stack_t *stack);
 
