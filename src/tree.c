@@ -76,7 +76,9 @@ lclex_node_t *lclex_church_encode(uint64_t n) {
     return abstr_f;
 }
 
-void lclex_free_node(lclex_node_t *node) {
+void lclex_free_node(void *data) {
+    lclex_node_t *node = data;
+    
     switch (node->type) {
         case LCLEX_APPLICATION:
             lclex_free_node(node->right);
@@ -99,7 +101,9 @@ void lclex_free_node(lclex_node_t *node) {
     free(node);
 }
 
-void lclex_free_partial_node(lclex_node_t *node) {
+void lclex_free_partial_node(void *data) {
+    lclex_node_t *node = data;
+    
     if (node->left != NULL) {
         lclex_free_partial_node(node->left);
     }

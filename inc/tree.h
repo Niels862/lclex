@@ -43,9 +43,9 @@ lclex_node_t *lclex_copy_node(lclex_node_t *node);
 
 lclex_node_t *lclex_church_encode(uint64_t n);
 
-void lclex_free_node(lclex_node_t *node);
+void lclex_free_node(void *data);
 
-void lclex_free_partial_node(lclex_node_t *node);
+void lclex_free_partial_node(void *data);
 
 void lclex_write_node_wrapped(lclex_node_t *node, FILE *stream, 
                               lclex_stack_t *stack);

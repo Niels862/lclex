@@ -62,7 +62,7 @@ void lclex_push_stack(lclex_stack_t *stack, void *data) {
     stack->data[stack->size] = data;
     stack->size++;
     if (stack->size >= stack->cap) {
-        stack->data = realloc(stack->data, 2 * stack->cap);
+        stack->data = realloc(stack->data, 2 * stack->cap * sizeof(void *));
         stack->cap *= 2;
     }
 }

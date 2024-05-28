@@ -4,10 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-char *lclex_next_token(lclex_parser_data_t *data) {
+char *lclex_next_token(lclex_token_t *token, char **text) {
     static char replaced = '\0';
 
-    char *p = *data->text;
+    char *p = *text;
 
     if (*p == '\0') {
         *p = replaced;
@@ -18,51 +18,59 @@ char *lclex_next_token(lclex_parser_data_t *data) {
         p++;
     }
 
-    data->token->data = p;
+    token->data = p;
 
     if (isalpha(*p) || *p == '_') {
-        data->token->type = LCLEX_TOKEN_IDENTIFIER;
+        token->type = LCLEX_TOKEN_IDENTIFIER;
         do {
             p++;
         } while (isalpha(*p) || *p == '_' || isdigit(*p));
     }
     else if (isdigit(*p)) {
-        data->token->type = LCLEX_TOKEN_INTLIT;
+        token->type = LCLEX_TOKEN_INTLIT;
         do {
             p++;
         } while (isdigit(*p));
     }
-    else if (*p == '\\' || *p == '(' || *p == ')' || *p == '.') {
+    else if (*p == '\\' || *p == '(' || *p == ')' || *p == '.' || *p == '=') {
         switch (*p) {
             case '\\':
-                data->token->type = LCLEX_TOKEN_LAMBDA;
+                token->type = LCLEX_TOKEN_LAMBDA;
                 break;
+            
             case '(':
-                data->token->type = LCLEX_TOKEN_BROPEN;
+                token->type = LCLEX_TOKEN_BROPEN;
                 break;
+            
             case ')':
-                data->token->type = LCLEX_TOKEN_BRCLOSE;
+                token->type = LCLEX_TOKEN_BRCLOSE;
                 break;
+            
             case '.':
-                data->token->type = LCLEX_TOKEN_DOT;
+                token->type = LCLEX_TOKEN_DOT;
                 break;
+
+            case '=':
+                token->type = LCLEX_TOKEN_EQUALS;
+                break;
+            
             default:
                 break;
         }
         p++;
     }
     else if (*p == '\0') {
-        data->token->type = LCLEX_TOKEN_EOF;
+        token->type = LCLEX_TOKEN_EOF;
     } else {
-        data->token->type = LCLEX_TOKEN_NULL;
-        data->token->data = NULL;
+        token->type = LCLEX_TOKEN_NULL;
+        token->data = NULL;
     }
 
     replaced = *p;
     *p = '\0';
-    *data->text = p;
+    *text = p;
 
-    return data->token->data;
+    return token->data;
 }
 
 char *lclex_type_string(lclex_tokentype_t type) {
@@ -73,6 +81,7 @@ char *lclex_type_string(lclex_tokentype_t type) {
         "lambda",
         "bracket-open",
         "bracket-close",
+        "equals",
         "dot",
         "eof"
     };
@@ -90,45 +99,87 @@ bool lclex_expect_token(lclex_token_t *token, lclex_tokentype_t expected) {
     return true;
 }
 
-lclex_node_t *lclex_parse_expression(char **text, lclex_hashmap_t *defs) {
-    lclex_stack_t stack;
-    lclex_init_stack(&stack);
-    
+lclex_parser_signal_t lclex_parse_statement(char **text, lclex_hashmap_t *defs, 
+                                            lclex_node_t **pnode) {
+    lclex_parser_signal_t sig = LCLEX_PARSER_SUCCESS;
+
     lclex_token_t token;
 
-    lclex_parser_data_t data = {
-        .stack = &stack,
-        .text = text,
-        .token = &token,
-        .defs = defs
-    };
+    lclex_next_token(&token, text);
 
-    lclex_next_token(&data);
+    char *key = NULL;
 
-    if (token.type == LCLEX_TOKEN_EOF) {
-        fprintf(stderr, "Error: empty input string\n");
+    if (strcmp(token.data, "def") == 0) {
+        lclex_next_token(&token, text);
+        if (lclex_expect_token(&token, LCLEX_TOKEN_IDENTIFIER)) {
+            key = lclex_strdup(token.data);
+
+            lclex_next_token(&token, text);
+            if (lclex_expect_token(&token, LCLEX_TOKEN_EQUALS)) {
+                lclex_next_token(&token, text);
+            } else {
+                sig = LCLEX_PARSER_FAILURE;
+            }
+        } else {
+            sig = LCLEX_PARSER_FAILURE;
+        }
+    } else if (strcmp(token.data, "exit") == 0) {
+        lclex_next_token(&token, text);
+        sig = LCLEX_PARSER_EXIT;
     }
 
-    lclex_node_t *node = lclex_parse_application(&data);
+    lclex_node_t *node = NULL;
+    
+    if (sig == LCLEX_PARSER_SUCCESS) {
+        lclex_stack_t stack;
+        lclex_init_stack(&stack);
 
-    lclex_destruct_stack(data.stack);
+        lclex_parser_data_t parser = {
+            .stack = &stack,
+            .text = text,
+            .token = &token,
+            .defs = defs
+        };
 
-    if (node == NULL || !lclex_expect_token(&token, LCLEX_TOKEN_EOF)) {
+        node = lclex_parse_application(&parser);
+
+        if (node == NULL) {
+            sig = LCLEX_PARSER_FAILURE;
+        }
+
+        lclex_destruct_stack(parser.stack);
+    }
+
+    if (!lclex_expect_token(&token, LCLEX_TOKEN_EOF)) {
+        sig = LCLEX_PARSER_FAILURE;
+    }
+
+    if (sig == LCLEX_PARSER_FAILURE) {
         if (node != NULL) {
             lclex_free_node(node);
         }
-        return NULL;
-    }
+        if (key != NULL) {
+            free(key);
+        }
 
-    return node;
+        *pnode = NULL;
+    } else {
+        if (key == NULL) {
+            *pnode = node;
+        } else {
+            *pnode = NULL;
+            lclex_insert_hashmap(defs, key, node);
+        }
+    }
+    return sig;
 }
 
-lclex_node_t *lclex_parse_application(lclex_parser_data_t *data) {
+lclex_node_t *lclex_parse_application(lclex_parser_data_t *parser) {
     lclex_node_t *node = NULL; 
     
-    while (data->token->type != LCLEX_TOKEN_EOF 
-           && data->token->type != LCLEX_TOKEN_BRCLOSE) {
-        lclex_node_t *sub = lclex_parse_abstraction(data);
+    while (parser->token->type != LCLEX_TOKEN_EOF 
+           && parser->token->type != LCLEX_TOKEN_BRCLOSE) {
+        lclex_node_t *sub = lclex_parse_abstraction(parser);
 
         if (sub == NULL) {
             if (node != NULL) {
@@ -148,32 +199,32 @@ lclex_node_t *lclex_parse_application(lclex_parser_data_t *data) {
     return node;
 }
 
-lclex_node_t *lclex_parse_abstraction(lclex_parser_data_t *data) {    
-    if (data->token->type != LCLEX_TOKEN_LAMBDA) {
-        return lclex_parse_value(data);
+lclex_node_t *lclex_parse_abstraction(lclex_parser_data_t *parser) {    
+    if (parser->token->type != LCLEX_TOKEN_LAMBDA) {
+        return lclex_parse_value(parser);
     }
 
-    lclex_next_token(data);
+    lclex_next_token(parser->token, parser->text);
 
-    if (!lclex_expect_token(data->token, LCLEX_TOKEN_IDENTIFIER)) {
+    if (!lclex_expect_token(parser->token, LCLEX_TOKEN_IDENTIFIER)) {
         return NULL;
     }
 
-    char *str = lclex_strdup(data->token->data);
+    char *str = lclex_strdup(parser->token->data);
 
     lclex_node_t *body;
 
-    lclex_next_token(data);
-    lclex_push_stack(data->stack, str);
+    lclex_next_token(parser->token, parser->text);
+    lclex_push_stack(parser->stack, str);
 
-    if (data->token->type == LCLEX_TOKEN_DOT) {
-        lclex_next_token(data);
-        body = lclex_parse_application(data);
+    if (parser->token->type == LCLEX_TOKEN_DOT) {
+        lclex_next_token(parser->token, parser->text);
+        body = lclex_parse_application(parser);
     } else {
-        body = lclex_parse_abstraction(data);
+        body = lclex_parse_abstraction(parser);
     }
 
-    lclex_pop_stack(data->stack);
+    lclex_pop_stack(parser->stack);
 
     if (body == NULL) {
         return NULL;
@@ -182,58 +233,58 @@ lclex_node_t *lclex_parse_abstraction(lclex_parser_data_t *data) {
     return lclex_new_node(LCLEX_ABSTRACTION, str, body, NULL);
 }
 
-lclex_node_t *lclex_parse_value(lclex_parser_data_t *data) {
-    if (data->token->type == LCLEX_TOKEN_BROPEN) {
-        lclex_next_token(data);
+lclex_node_t *lclex_parse_value(lclex_parser_data_t *parser) {
+    lclex_node_t *node, *def_node;
+    
+    if (parser->token->type == LCLEX_TOKEN_BROPEN) {
+        lclex_next_token(parser->token, parser->text);
 
-        lclex_node_t *node = lclex_parse_application(data);
+        node = lclex_parse_application(parser);
         
         if (node == NULL) {
             return NULL;
         }
 
-        if (!lclex_expect_token(data->token, LCLEX_TOKEN_BRCLOSE)) {
+        if (!lclex_expect_token(parser->token, LCLEX_TOKEN_BRCLOSE)) {
             return NULL;
         }
 
-        lclex_next_token(data);
+        lclex_next_token(parser->token, parser->text);
 
         return node;
     }
     
-    if (data->token->type == LCLEX_TOKEN_INTLIT) {
-        uint64_t n = strtoull(data->token->data, NULL, 10);
+    if (parser->token->type == LCLEX_TOKEN_INTLIT) {
+        uint64_t n = strtoull(parser->token->data, NULL, 10);
         
-        lclex_next_token(data);
+        lclex_next_token(parser->token, parser->text);
 
         return lclex_church_encode(n);
     }
 
-    if (!lclex_expect_token(data->token, LCLEX_TOKEN_IDENTIFIER)) {
+    if (!lclex_expect_token(parser->token, LCLEX_TOKEN_IDENTIFIER)) {
         return NULL;
     }
 
-    lclex_type_t type;
-    uintptr_t str;
-    size_t i;
+    for (size_t i = 0; i < parser->stack->size; i++) {
+        char *bound_str = parser->stack->data[parser->stack->size - i - 1];
 
-    for (i = 0; i < data->stack->size; i++) {
-        char *bound_str = data->stack->data[data->stack->size - i - 1];
+        if (strcmp(parser->token->data, bound_str) == 0) {
+            lclex_next_token(parser->token, parser->text);
 
-        if (strcmp(data->token->data, bound_str) == 0) {
-            str = i;
-            type = LCLEX_BOUND_VARIABLE;
-
-            break;
+            return lclex_new_bound_variable(i);
         }
     }
 
-    if (i == data->stack->size) {
-        type = LCLEX_FREE_VARIABLE;
-        str = (uintptr_t)lclex_strdup(data->token->data);
+    def_node = lclex_lookup_hashmap(parser->defs, parser->token->data);
+
+    if (def_node == NULL) {
+        node = lclex_new_free_variable(lclex_strdup(parser->token->data));
+    } else {
+        node = lclex_copy_node(def_node);
     }
 
-    lclex_next_token(data);
+    lclex_next_token(parser->token, parser->text);
 
-    return lclex_new_node(type, (char *)str, NULL, NULL);
+    return node;
 }
