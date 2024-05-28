@@ -1,8 +1,50 @@
+#define _GNU_SOURCE
+
 #include "tree.h"
 #include "parser.h"
 #include <stdio.h>
+#include <stdbool.h>
+#include <unistd.h>
 
-int main() {
+typedef struct {
+    bool show_numbers;
+    bool show_reductions;
+    bool show_parsed;
+    bool hide_results;
+} lclex_options_t;
+
+int main(int argc, char *argv[]) {
+    lclex_options_t opts = {
+        .show_numbers = false,
+        .show_reductions = false,
+        .hide_results = false
+    };
+
+    int opt;
+    while ((opt = getopt(argc, argv, "nrh")) != -1) {
+        switch (opt) {
+            case 'n':
+                opts.show_numbers = true;
+                break;
+            
+            case 'r':
+                opts.show_reductions = true;
+                break;
+            
+            case 'p':
+                opts.show_parsed = true;
+                break;
+
+            case 'h':
+                opts.hide_results = true;
+                break;
+            
+            default:
+                fprintf(stderr, "Unknown option: '%c'\n", opt);
+                return 1;
+        }
+    }
+
     lclex_string_buf_t buf;
     lclex_init_string_buf(&buf);
 
@@ -12,7 +54,7 @@ int main() {
     lclex_parser_signal_t sig = LCLEX_PARSER_SUCCESS;
 
     while (sig != LCLEX_PARSER_EXIT) {
-        printf("> ");
+        printf(">>> ");
         lclex_readline(&buf, stdin);
 
         char *text = buf.str;
@@ -24,18 +66,25 @@ int main() {
             continue;
         }
 
-        lclex_reduce_expression(&expr, UINT64_MAX);
-
-        if (1) {
-            uint64_t n = lclex_church_decode(expr);
-            if (n == UINT64_MAX) {
-                printf("nan\n");
-            } else {
-                printf("%ld\n", n);
-            }
-        } else {
+        if (opts.show_parsed) {
             lclex_write_node(expr, stdout);
         }
+
+        lclex_reduce_expression(&expr, UINT64_MAX, opts.show_reductions);
+        
+        if (!opts.hide_results) {
+            printf("> ");
+            lclex_write_node(expr, stdout);
+        }
+        
+        if (opts.show_numbers) {
+            uint64_t n = lclex_church_decode(expr);
+            if (n == UINT64_MAX) {
+                printf("> nan\n");
+            } else {
+                printf("> %ld\n", n);
+            }
+        } 
         
         lclex_free_node(expr);
     }

@@ -67,6 +67,7 @@ void lclex_shift(lclex_node_t *node, uint64_t shift,
 
 void lclex_reduce_redex(lclex_node_t **redex, lclex_stack_t *stack);
 
-void lclex_reduce_expression(lclex_node_t **pexpr, uint64_t max);
+void lclex_reduce_expression(lclex_node_t **pexpr, uint64_t max, 
+                             bool show_reductions);
 
 #endif
