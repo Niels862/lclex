@@ -41,10 +41,6 @@ lclex_node_t *lclex_new_bound_variable(lclex_bruijn_index_t index);
 
 lclex_node_t *lclex_copy_node(lclex_node_t *node);
 
-lclex_node_t *lclex_church_encode(uint64_t n);
-
-uint64_t lclex_church_decode(lclex_node_t *node);
-
 void lclex_free_node(void *data);
 
 void lclex_free_partial_node(void *data);
@@ -53,6 +49,10 @@ void lclex_write_node_wrapped(lclex_node_t *node, FILE *stream,
                               lclex_stack_t *stack);
 
 void lclex_write_node(lclex_node_t *node, FILE *stream);
+
+lclex_node_t *lclex_church_encode(uint64_t n);
+
+uint64_t lclex_church_decode(lclex_node_t *node);
 
 void lclex_remove_bound_names(lclex_node_t *node);
 

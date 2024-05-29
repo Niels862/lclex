@@ -62,50 +62,6 @@ lclex_node_t *lclex_copy_node(lclex_node_t *node) {
     return lclex_new_node(node->type, str, left, right);
 }
 
-lclex_node_t *lclex_church_encode(uint64_t n) {
-    lclex_node_t *node = lclex_new_bound_variable(0);
-
-    for (uint64_t i = n; i > 0; i--) {
-        lclex_node_t *f = lclex_new_bound_variable(1);
-        node = lclex_new_application(f, node);
-    }
-
-    lclex_node_t *abstr_x = lclex_new_abstraction(lclex_strdup("x"), node);
-    lclex_node_t *abstr_f = lclex_new_abstraction(lclex_strdup("f"), abstr_x);
-    
-    return abstr_f;
-}
-
-uint64_t lclex_church_decode(lclex_node_t *node) {
-    lclex_node_t *temp = node;
-    if (temp->type != LCLEX_ABSTRACTION) {
-        return UINT64_MAX;
-    }
-
-    temp = temp->left;
-    if (temp->type != LCLEX_ABSTRACTION) {
-        return UINT64_MAX;
-    }
-
-    uint64_t n = 0;
-    temp = temp->left;
-    while (temp->type != LCLEX_BOUND_VARIABLE) {
-        if (temp->type != LCLEX_APPLICATION 
-            || temp->left->type != LCLEX_BOUND_VARIABLE
-            || temp->left->data.index != 1) {
-            return UINT64_MAX;
-        }
-
-        temp = temp->right;
-        n++;
-    }
-
-    if (temp->data.index != 0) {
-        return UINT64_MAX;
-    }
-    return n;
-}
-
 void lclex_free_node(void *data) {
     lclex_node_t *node = data;
     
@@ -202,6 +158,54 @@ void lclex_write_node(lclex_node_t *node, FILE *stream) {
     printf("\n");
 
     lclex_destruct_stack(&stack);
+}
+
+lclex_node_t *lclex_church_encode(uint64_t n) {
+    lclex_node_t *node = lclex_new_bound_variable(0);
+
+    for (uint64_t i = n; i > 0; i--) {
+        lclex_node_t *f = lclex_new_bound_variable(1);
+        node = lclex_new_application(f, node);
+    }
+
+    lclex_node_t *abstr_x = lclex_new_abstraction(lclex_strdup("x"), node);
+    lclex_node_t *abstr_f = lclex_new_abstraction(lclex_strdup("f"), abstr_x);
+    
+    return abstr_f;
+}
+
+uint64_t lclex_church_decode(lclex_node_t *node) {
+    lclex_node_t *temp = node;
+    if (temp->type != LCLEX_ABSTRACTION) {
+        return UINT64_MAX;
+    }
+
+    temp = temp->left;
+    if (temp->type == LCLEX_BOUND_VARIABLE && temp->data.index == 0) {
+        return 0;
+    }
+
+    if (temp->type != LCLEX_ABSTRACTION) {
+        return UINT64_MAX;
+    }
+
+    uint64_t n = 0;
+    temp = temp->left;
+    while (temp->type != LCLEX_BOUND_VARIABLE) {
+        if (temp->type != LCLEX_APPLICATION 
+            || temp->left->type != LCLEX_BOUND_VARIABLE
+            || temp->left->data.index != 1) {
+            return UINT64_MAX;
+        }
+
+        temp = temp->right;
+        n++;
+    }
+
+    if (temp->data.index != 0) {
+        return UINT64_MAX;
+    }
+    return n;
 }
 
 void lclex_remove_bound_names(lclex_node_t *node) {

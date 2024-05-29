@@ -62,6 +62,9 @@ int main(int argc, char *argv[]) {
     lclex_hashmap_t defs;
     lclex_init_string_hashmap(&defs, lclex_free_node);
 
+    lclex_operator_level_t opdefs[LCLEX_N_OPERATOR_LEVELS];
+    lclex_init_operator_levels(opdefs);
+
     lclex_parser_signal_t sig = LCLEX_PARSER_SUCCESS;
 
     while (sig != LCLEX_PARSER_EXIT) {
@@ -71,7 +74,7 @@ int main(int argc, char *argv[]) {
         char *text = buf.str;
         lclex_node_t *expr;
 
-        sig = lclex_parse_statement(&text, &defs, &expr);
+        sig = lclex_parse_statement(&text, &defs, opdefs, &expr);
 
         if (expr == NULL) {
             continue;
@@ -99,9 +102,10 @@ int main(int argc, char *argv[]) {
         
         lclex_free_node(expr);
     }
-    
-    lclex_destruct_hashmap(&defs);
+
     lclex_destruct_string_buf(&buf);
+    lclex_destruct_hashmap(&defs);
+    lclex_destruct_operator_levels(opdefs);
 
     return 0;
 }
