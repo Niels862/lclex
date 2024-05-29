@@ -13,6 +13,14 @@ typedef struct {
     bool hide_results;
 } lclex_options_t;
 
+void lclex_help(char *argv[]) {
+    fprintf(stderr, "Usage: %s [-nrph]\n", argv[0]);
+    fprintf(stderr, "    -n: show numbers\n");
+    fprintf(stderr, "    -r: show reductions\n");
+    fprintf(stderr, "    -p: show parsed expression\n");
+    fprintf(stderr, "    -h: hide result expression\n");
+}
+
 int main(int argc, char *argv[]) {
     lclex_options_t opts = {
         .show_numbers = false,
@@ -21,7 +29,7 @@ int main(int argc, char *argv[]) {
     };
 
     int opt;
-    while ((opt = getopt(argc, argv, "nrh")) != -1) {
+    while ((opt = getopt(argc, argv, "nrph")) != -1) {
         switch (opt) {
             case 'n':
                 opts.show_numbers = true;
@@ -39,8 +47,11 @@ int main(int argc, char *argv[]) {
                 opts.hide_results = true;
                 break;
             
+            case '?':
+                lclex_help(argv);
+
+            __attribute__((fallthrough));
             default:
-                fprintf(stderr, "Unknown option: '%c'\n", opt);
                 return 1;
         }
     }
