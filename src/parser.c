@@ -120,7 +120,7 @@ lclex_node_t *lclex_new_binary_node(lclex_node_t *func, lclex_node_t *left,
 void lclex_init_operator_levels(lclex_operator_level_t *opdefs) {
     for (size_t i = 0; i < LCLEX_N_OPERATOR_LEVELS; i++) {
         opdefs[i].n = 0;
-        switch (i) {
+        switch (i + 1) {
             case 0: 
                 opdefs[i].type = LCLEX_OPERATOR_SUFFIX;
                 break;
@@ -377,7 +377,7 @@ lclex_node_t *lclex_parse_body(lclex_parser_data_t *parser, size_t level) {
                     case LCLEX_OPERATOR_INFIXR:
                         other = lclex_parse_body(parser, level);
                         if (other == NULL) {
-                            free(node);
+                            lclex_free_node(node);
                         }
                         return lclex_new_binary_node(level_def->defs[i].node, 
                                                      node, other);
@@ -385,7 +385,7 @@ lclex_node_t *lclex_parse_body(lclex_parser_data_t *parser, size_t level) {
                     case LCLEX_OPERATOR_INFIXL:
                         other = lclex_parse_body(parser, level - 1);
                         if (other == NULL) {
-                            free(node);
+                            lclex_free_node(node);
                         }
                         node = lclex_new_binary_node(level_def->defs[i].node, 
                                                      node, other);
